@@ -38,6 +38,8 @@ class Cookie:
         if os.name == "nt":
             self.case_sensitivity = re.I
 
+def asUNC(path):
+    return u"\\\\?\\" + path.replace(".\\", "")
 
 def visit(cookie, dirname, names):
     """Copy files names from sink_root + (dirname - sink_root) to target_root + (dirname - sink_root)"""
@@ -94,7 +96,7 @@ def visit(cookie, dirname, names):
                 continue
             if not name in names:
                 target = os.path.join(target_dir, name)
-                if os.path.isfile(target):
+                if os.path.isfile(asUNC(target)):
                     removeFile(cookie, target)
                 elif os.path.isdir(target):
                     removeDir(cookie, target)
@@ -106,14 +108,14 @@ def visit(cookie, dirname, names):
         sink = os.path.join(sink_dir, name)
         # print sink
         target = os.path.join(target_dir, name)
-        if os.path.exists(target):
+        if os.path.exists(asUNC(target)):
             # When target already exit:
-            if os.path.isfile(sink):
-                if os.path.isfile(target):
+            if os.path.isfile(asUNC(sink)):
+                if os.path.isfile(asUNC(target)):
                     # file-file
                     if shouldUpdate(cookie, sink, target):
                         updateFile(cookie, sink, target)
-                elif os.path.isdir(target):
+                elif os.path.isdir(asUNC(target)):
                     # file-folder
                     removeDir(cookie, target)
                     copyFile(cookie, sink, target)
@@ -121,7 +123,7 @@ def visit(cookie, dirname, names):
                     # file-???
                     logError("Target %s is neither a file nor folder (skip update)" % sink)
 
-            elif os.path.isdir(sink):
+            elif os.path.isdir(asUNC(sink)):
                 if os.path.isfile(target):
                     # folder-file
                     removeFile(cookie, target)
@@ -132,10 +134,10 @@ def visit(cookie, dirname, names):
 
         elif not cookie.existing:
             # When target dont exist:
-            if os.path.isfile(sink):
+            if os.path.isfile(asUNC(sink)):
                 # file
                 copyFile(cookie, sink, target)
-            elif os.path.isdir(sink):
+            elif os.path.isdir(asUNC(sink)):
                 # folder
                 makeDir(cookie, target)
             else:
@@ -159,7 +161,7 @@ def logError(message):
 
 def shouldUpdate(cookie, sink, target):
     try:
-        sink_st = os.stat(sink)
+        sink_st = os.stat(asUNC(sink))
         sink_sz = sink_st.st_size
         sink_mt = sink_st.st_mtime
     except:
@@ -167,7 +169,7 @@ def shouldUpdate(cookie, sink, target):
         return 0
 
     try:
-        target_st = os.stat(target)
+        target_st = os.stat(asUNC(target))
         target_sz = target_st.st_size
         target_mt = target_st.st_mtime
     except:
@@ -190,6 +192,10 @@ def shouldUpdate(cookie, sink, target):
 
 
 def copyFile(cookie, sink, target):
+
+    sink = asUNC(sink)
+    target = asUNC(target)
+
     log(cookie, "copy: %s to: %s" % (sink, target))
     if not cookie.dry_run:
         try:
@@ -206,6 +212,10 @@ def copyFile(cookie, sink, target):
 
 
 def updateFile(cookie, sink, target):
+
+    sink = asUNC(sink)
+    target = asUNC(target)
+
     log(cookie, "update: %s to: %s" % (sink, target))
     if not cookie.dry_run:
         # Read only and hidden and system files can not be overridden.
@@ -237,6 +247,9 @@ def updateFile(cookie, sink, target):
 
 
 def prepareRemoveFile(path):
+
+    path = asUNC(path)
+
     if win32file:
         filemode = win32file.GetFileAttributesW(path)
         win32file.SetFileAttributesW(path,
@@ -246,6 +259,9 @@ def prepareRemoveFile(path):
 
 
 def removeFile(cookie, target):
+
+    target = asUNC(target)
+
     # Read only files could not be deleted.
     log(cookie, "remove: %s" % target)
     if not cookie.dry_run:
@@ -262,6 +278,9 @@ def removeFile(cookie, target):
 
 
 def makeDir(cookie, target):
+
+    target = asUNC(target)
+
     log(cookie, "make dir: %s" % target)
     if not cookie.dry_run:
         try:
@@ -286,6 +305,9 @@ def OnRemoveDirError(func, path, excinfo):
 
 
 def removeDir(cookie, target):
+
+    target = asUNC(target)
+
     # Read only directory could not be deleted.
     log(cookie, "remove dir: %s" % target)
     if not cookie.dry_run:
